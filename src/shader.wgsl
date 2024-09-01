@@ -49,6 +49,7 @@ fn vs_main(
     let mesh = meshes.meshes[instance_index];
     let vertex = vertices.vertices[vertex_index];
     let position = point_to_vec3(transform_point(vec3_to_point(vertex.position), mesh.transform));
+    let normal = point_to_normal(transform_point(normal_to_point(vertex.normal), mesh.transform));
 
     out.clip_position = vec4<f32>(
         position.x / camera.aspect,
@@ -58,7 +59,7 @@ fn vs_main(
     );
     out.instance_index = instance_index;
     out.position = position;
-    out.normal = vertex.normal;
+    out.normal = normal;
 
     return out;
 }
@@ -86,12 +87,29 @@ fn vec3_to_point(v: vec3<f32>) -> Point {
     return result;
 }
 
+fn normal_to_point(v: vec3<f32>) -> Point {
+    var result: Point;
+    result.e012 = v.z;
+    result.e013 = -v.y;
+    result.e023 = v.x;
+    result.e123 = 0.0;
+    return result;
+}
+
 fn point_to_vec3(p: Point) -> vec3<f32> {
     return vec3<f32>(
         p.e023 / p.e123,
         -p.e013 / p.e123,
         p.e012 / p.e123,
     );
+}
+
+fn point_to_normal(p: Point) -> vec3<f32> {
+    return normalize(vec3<f32>(
+        p.e023,
+        -p.e013,
+        p.e012,
+    ));
 }
 
 struct Motor {

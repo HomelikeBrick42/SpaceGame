@@ -3,8 +3,8 @@ use std::sync::Arc;
 use winit::window::Window;
 
 use crate::{
-    motor::Motor, sin_cos, vector3::Vector3, Camera, GpuCamera, GpuMesh, GpuMeshes, GpuVertices,
-    Mesh, Number, Vertex,
+    motor::Motor, vector3::Vector3, Camera, GpuCamera, GpuMesh, GpuMeshes, GpuVertices, Mesh,
+    Number, Vertex,
 };
 
 pub struct Game {
@@ -196,24 +196,7 @@ impl Game {
             cache: None,
         });
 
-        let cube = obj::Obj::load("./untitled.obj").unwrap();
-
-        assert_eq!(cube.data.objects.len(), 1);
-        assert_eq!(cube.data.objects[0].groups.len(), 1);
-        let vertices = cube.data.objects[0].groups[0]
-            .polys
-            .iter()
-            .flat_map(|poly| &poly.0)
-            .map(|index| Vertex {
-                position: cube.data.position[index.0].into(),
-                normal: cube.data.normal[index.2.unwrap()].into(),
-            })
-            .collect::<Vec<_>>();
-
-        println!("{:?}", sin_cos(Number::PI));
-        println!("{:?}", std::f64::consts::PI.sin_cos());
-
-        Self {
+        let mut app = Self {
             window,
             surface_config,
             surface,
@@ -224,41 +207,50 @@ impl Game {
             },
             camera_buffer,
             camera_bind_group,
-            meshes: vec![Mesh {
-                color: cgmath::vec3(1.0, 0.0, 0.0),
-                start_vertex_index: 0,
-                triangle_count: vertices.len() as _,
-                transform: Motor::translation(Vector3::new(
-                    Number::from_num(0),
-                    Number::from_num(0),
-                    Number::from_num(5),
-                )),
-            }],
-            vertices,
+            meshes: Vec::new(),
+            vertices: Vec::new(),
             mesh_buffer,
             triangles_buffer,
             mesh_bind_group_layout,
             mesh_bind_group,
             render_pipeline,
-        }
+        };
+        app.load_mesh(
+            "./untitled.obj",
+            cgmath::vec3(0.0, 1.0, 0.0),
+            Motor::translation(Vector3::Z * Number::from_num(5)),
+        );
+        app
     }
 
-    pub fn update(&mut self, _time: std::time::Duration, dt: std::time::Duration) {
-        let ts = Number::from_num(dt.as_secs_f64());
+    fn load_mesh(&mut self, path: &str, color: cgmath::Vector3<f32>, transform: Motor) -> usize {
+        let index = self.meshes.len();
+        let start_vertex_index = self.vertices.len() as _;
 
-        // let position = Vector3::new(
-        //     Number::from_num((time.as_secs_f64() * 2.0).sin() * 4.0),
-        //     Number::from_num((time.as_secs_f64() * 3.1).cos() * 4.0),
-        //     Number::ZERO,
-        // );
-        // self.camera.transform = Motor::translation(position);
+        let object = obj::Obj::load(path).unwrap();
 
-        let cockpit = &mut self.meshes[0];
-        cockpit.transform = cockpit
-            .transform
-            .pre_apply(Motor::rotation_xy(ts * Number::from_num(1)))
-            .pre_apply(Motor::rotation_xz(ts * Number::from_num(2)))
-            .pre_apply(Motor::rotation_yz(ts * Number::from_num(0.2)));
+        assert_eq!(object.data.objects.len(), 1);
+        assert_eq!(object.data.objects[0].groups.len(), 1);
+        let vertices = object.data.objects[0].groups[0]
+            .polys
+            .iter()
+            .flat_map(|poly| &poly.0)
+            .map(|index| Vertex {
+                position: object.data.position[index.0].into(),
+                normal: object.data.normal[index.2.unwrap()].into(),
+            })
+            .collect::<Vec<_>>();
+
+        self.meshes.push(Mesh {
+            color,
+            start_vertex_index,
+            triangle_count: vertices.len() as _,
+            transform,
+        });
+
+        self.vertices.extend(vertices);
+
+        index
     }
 
     pub fn resize(&mut self, width: u32, height: u32) {
@@ -432,5 +424,23 @@ impl Game {
 
         self.window.pre_present_notify();
         output.present();
+    }
+
+    pub fn update(&mut self, _time: std::time::Duration, dt: std::time::Duration) {
+        let ts = Number::from_num(dt.as_secs_f64());
+
+        // let position = Vector3::new(
+        //     Number::from_num((time.as_secs_f64() * 2.0).sin() * 4.0),
+        //     Number::from_num((time.as_secs_f64() * 3.1).cos() * 4.0),
+        //     Number::ZERO,
+        // );
+        // self.camera.transform = Motor::translation(position);
+
+        let cockpit = &mut self.meshes[0];
+        cockpit.transform = cockpit
+            .transform
+            .pre_apply(Motor::rotation_xy(ts * Number::from_num(1)))
+            .pre_apply(Motor::rotation_xz(ts * Number::from_num(2)))
+            .pre_apply(Motor::rotation_yz(ts * Number::from_num(0.2)));
     }
 }
