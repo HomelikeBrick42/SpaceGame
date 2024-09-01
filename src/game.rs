@@ -439,8 +439,9 @@ impl Game {
         let cockpit = &mut self.meshes[0];
         cockpit.transform = cockpit
             .transform
-            .pre_apply(Motor::rotation_xy(ts * Number::from_num(1)))
-            .pre_apply(Motor::rotation_xz(ts * Number::from_num(2)))
-            .pre_apply(Motor::rotation_yz(ts * Number::from_num(0.2)));
+            .pre_apply(Motor::rotation_xy(ts * Number::from_num(0)))
+            .pre_apply(Motor::rotation_xz(ts * Number::from_num(1)))
+            .pre_apply(Motor::rotation_yz(ts * Number::from_num(0)))
+            .normalized();
     }
 }

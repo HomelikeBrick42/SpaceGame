@@ -303,4 +303,36 @@ impl Motor {
             e0123: self.e0123,
         }
     }
+
+    pub fn magnitude_squared(self) -> Number {
+        (self.apply(self.inverse())).s
+    }
+
+    pub fn magnitude(self) -> Number {
+        self.magnitude_squared().sqrt()
+    }
+
+    pub fn normalized(self) -> Self {
+        let inverse_magnitude = self.magnitude().recip();
+        let Self {
+            s,
+            e12,
+            e13,
+            e23,
+            e01,
+            e02,
+            e03,
+            e0123,
+        } = self;
+        Self {
+            s: s * inverse_magnitude,
+            e12: e12 * inverse_magnitude,
+            e13: e13 * inverse_magnitude,
+            e23: e23 * inverse_magnitude,
+            e01: e01 * inverse_magnitude,
+            e02: e02 * inverse_magnitude,
+            e03: e03 * inverse_magnitude,
+            e0123: e0123 * inverse_magnitude,
+        }
+    }
 }
