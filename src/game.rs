@@ -1,4 +1,9 @@
+use std::fs::{self, DirEntry};
+use std::io;
+use std::path::Path;
+
 use encase::{ShaderSize, ShaderType, StorageBuffer, UniformBuffer};
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use winit::window::Window;
 
@@ -23,6 +28,13 @@ pub struct Game {
     mesh_bind_group_layout: wgpu::BindGroupLayout,
     mesh_bind_group: wgpu::BindGroup,
     render_pipeline: wgpu::RenderPipeline,
+}
+#[derive(Serialize, Deserialize, Debug)]
+struct Part {
+    name: String,
+    model: String,
+    title: String,
+    discription: String,
 }
 
 impl Game {
@@ -215,17 +227,36 @@ impl Game {
             mesh_bind_group,
             render_pipeline,
         };
-        app.load_mesh(
-            "./untitled.obj",
-            cgmath::vec3(0.0, 1.0, 0.0),
-            Transform::translation(Vector3::Z * Number::from_num(5)),
-        );
+        app.load_game(Path::new("GameData"));
         app
+    }
+
+    fn load_game(&mut self, path: &Path) {
+        if path.is_dir() {
+            for entry in fs::read_dir(path).unwrap() {
+                let entry = entry.unwrap();
+                let path = entry.path();
+                self.load_game(&path)
+            }
+        } else if path
+            .extension()
+            .is_some_and(|path| path.to_str() == Some("json"))
+        {
+            let part: Part = serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
+            let mut model_path = path.parent().unwrap().to_owned();
+            model_path.push(part.model);
+            model_path.set_extension("obj");
+            self.load_mesh(
+                &model_path,
+                cgmath::vec3(0.0, 1.0, 0.0),
+                Transform::translation(Vector3::Z * Number::from_num(5)),
+            );
+        }
     }
 
     fn load_mesh(
         &mut self,
-        path: &str,
+        path: &Path,
         color: cgmath::Vector3<f32>,
         transform: Transform,
     ) -> usize {
