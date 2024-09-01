@@ -1,16 +1,13 @@
-use std::fs::{self, DirEntry};
-use std::io;
-use std::path::Path;
-
-use encase::{ShaderSize, ShaderType, StorageBuffer, UniformBuffer};
-use serde::{Deserialize, Serialize};
-use std::sync::Arc;
-use winit::window::Window;
-
 use crate::{
     motor::Transform, vector3::Vector3, Camera, GpuCamera, GpuMesh, GpuMeshes, GpuVertices, Mesh,
     Number, Vertex,
 };
+use encase::{ShaderSize, ShaderType, StorageBuffer, UniformBuffer};
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::path::Path;
+use std::sync::Arc;
+use winit::window::Window;
 
 pub struct Game {
     window: Arc<Window>,
@@ -21,7 +18,7 @@ pub struct Game {
     camera: Camera,
     camera_buffer: wgpu::Buffer,
     camera_bind_group: wgpu::BindGroup,
-    meshes: Vec<Mesh>,
+    meshes: HashMap<String, Mesh>,
     vertices: Vec<Vertex>,
     mesh_buffer: wgpu::Buffer,
     vertices_buffer: wgpu::Buffer,
@@ -29,8 +26,9 @@ pub struct Game {
     mesh_bind_group: wgpu::BindGroup,
     render_pipeline: wgpu::RenderPipeline,
 }
+
 #[derive(Serialize, Deserialize, Debug)]
-struct Part {
+struct MeshConfig {
     name: String,
     model: String,
     title: String,
@@ -219,7 +217,7 @@ impl Game {
             },
             camera_buffer,
             camera_bind_group,
-            meshes: Vec::new(),
+            meshes: HashMap::new(),
             vertices: Vec::new(),
             mesh_buffer,
             vertices_buffer,
@@ -233,7 +231,7 @@ impl Game {
 
     fn load_game(&mut self, path: &Path) {
         if path.is_dir() {
-            for entry in fs::read_dir(path).unwrap() {
+            for entry in std::fs::read_dir(path).unwrap() {
                 let entry = entry.unwrap();
                 let path = entry.path();
                 self.load_game(&path)
@@ -242,11 +240,12 @@ impl Game {
             .extension()
             .is_some_and(|path| path.to_str() == Some("json"))
         {
-            let part: Part = serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
-            let mut model_path = path.parent().unwrap().to_owned();
-            model_path.push(part.model);
+            let part: MeshConfig =
+                serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
+            let mut model_path = path.parent().unwrap().join(part.model);
             model_path.set_extension("obj");
             self.load_mesh(
+                &part.name,
                 &model_path,
                 cgmath::vec3(0.0, 1.0, 0.0),
                 Transform::translation(Vector3::Z * Number::from_num(5)),
@@ -256,6 +255,7 @@ impl Game {
 
     fn load_mesh(
         &mut self,
+        name: &str,
         path: &Path,
         color: cgmath::Vector3<f32>,
         transform: Transform,
@@ -277,12 +277,21 @@ impl Game {
             })
             .collect::<Vec<_>>();
 
-        self.meshes.push(Mesh {
-            color,
-            start_vertex_index,
-            triangle_count: vertices.len() as _,
-            transform,
-        });
+        if self
+            .meshes
+            .insert(
+                name.into(),
+                Mesh {
+                    color,
+                    start_vertex_index,
+                    triangle_count: vertices.len() as _,
+                    transform,
+                },
+            )
+            .is_some()
+        {
+            panic!("{name} part defined multiple times");
+        }
 
         self.vertices.extend(vertices);
 
@@ -341,7 +350,7 @@ impl Game {
                 let meshes = GpuMeshes {
                     meshes: &self
                         .meshes
-                        .iter()
+                        .values()
                         .map(
                             |&Mesh {
                                  color,
@@ -449,7 +458,7 @@ impl Game {
             render_pass.set_pipeline(&self.render_pipeline);
             render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
             render_pass.set_bind_group(1, &self.mesh_bind_group, &[]);
-            for (i, mesh) in self.meshes.iter().enumerate() {
+            for (i, mesh) in self.meshes.values().enumerate() {
                 render_pass.draw(
                     mesh.start_vertex_index..mesh.start_vertex_index + mesh.triangle_count,
                     i as u32..i as u32 + 1,
@@ -472,7 +481,7 @@ impl Game {
         // );
         // self.camera.transform = Motor::translation(position);
 
-        let cockpit = &mut self.meshes[0];
+        let cockpit = self.meshes.get_mut("mk1-cockpit").unwrap();
         cockpit.transform = cockpit
             .transform
             .pre_apply(Transform::rotation_xy(ts * Number::from_num(0)))
