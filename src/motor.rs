@@ -18,7 +18,7 @@ impl Point {
         e123: Number::ZERO,
     };
 
-    pub fn transform(self, motor: Motor) -> Self {
+    pub fn transform(self, motor: Transform) -> Self {
         let a = motor.s;
         let b = motor.e12;
         let c = motor.e13;
@@ -126,7 +126,7 @@ impl From<Point> for Vector3 {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub struct Motor {
+pub struct Transform {
     pub s: Number,
     pub e12: Number,
     pub e13: Number,
@@ -138,7 +138,7 @@ pub struct Motor {
 }
 
 #[derive(Debug, Clone, Copy, ShaderType)]
-pub struct GpuMotor {
+pub struct GpuTransform {
     pub s: f32,
     pub e12: f32,
     pub e13: f32,
@@ -149,9 +149,9 @@ pub struct GpuMotor {
     pub e0123: f32,
 }
 
-impl From<Motor> for GpuMotor {
-    fn from(motor: Motor) -> Self {
-        let Motor {
+impl From<Transform> for GpuTransform {
+    fn from(motor: Transform) -> Self {
+        let Transform {
             s,
             e12,
             e13,
@@ -174,7 +174,7 @@ impl From<Motor> for GpuMotor {
     }
 }
 
-impl Motor {
+impl Transform {
     pub const IDENTITY: Self = Self {
         s: Number::ONE,
         e12: Number::ZERO,

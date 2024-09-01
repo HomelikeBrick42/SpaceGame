@@ -1,7 +1,7 @@
 use az::CastFrom;
 use encase::ShaderType;
 use fixed::{types::extra::U16, FixedI128};
-use motor::{GpuMotor, Motor};
+use motor::{GpuTransform, Transform};
 
 pub mod game;
 pub mod motor;
@@ -10,7 +10,7 @@ pub mod vector3;
 pub type Number = FixedI128<U16>;
 
 pub struct Camera {
-    pub transform: Motor,
+    pub transform: Transform,
 }
 
 #[derive(ShaderType)]
@@ -22,13 +22,13 @@ pub struct Mesh {
     pub color: cgmath::Vector3<f32>,
     pub start_vertex_index: u32,
     pub triangle_count: u32,
-    pub transform: Motor,
+    pub transform: Transform,
 }
 
 #[derive(ShaderType)]
 pub struct GpuMesh {
     pub color: cgmath::Vector3<f32>,
-    pub transform: GpuMotor,
+    pub transform: GpuTransform,
 }
 
 #[derive(ShaderType)]

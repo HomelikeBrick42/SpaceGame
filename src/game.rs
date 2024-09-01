@@ -3,7 +3,7 @@ use std::sync::Arc;
 use winit::window::Window;
 
 use crate::{
-    motor::Motor, vector3::Vector3, Camera, GpuCamera, GpuMesh, GpuMeshes, GpuVertices, Mesh,
+    motor::Transform, vector3::Vector3, Camera, GpuCamera, GpuMesh, GpuMeshes, GpuVertices, Mesh,
     Number, Vertex,
 };
 
@@ -203,7 +203,7 @@ impl Game {
             device,
             queue,
             camera: Camera {
-                transform: Motor::IDENTITY,
+                transform: Transform::IDENTITY,
             },
             camera_buffer,
             camera_bind_group,
@@ -218,12 +218,17 @@ impl Game {
         app.load_mesh(
             "./untitled.obj",
             cgmath::vec3(0.0, 1.0, 0.0),
-            Motor::translation(Vector3::Z * Number::from_num(5)),
+            Transform::translation(Vector3::Z * Number::from_num(5)),
         );
         app
     }
 
-    fn load_mesh(&mut self, path: &str, color: cgmath::Vector3<f32>, transform: Motor) -> usize {
+    fn load_mesh(
+        &mut self,
+        path: &str,
+        color: cgmath::Vector3<f32>,
+        transform: Transform,
+    ) -> usize {
         let index = self.meshes.len();
         let start_vertex_index = self.vertices.len() as _;
 
@@ -439,9 +444,9 @@ impl Game {
         let cockpit = &mut self.meshes[0];
         cockpit.transform = cockpit
             .transform
-            .pre_apply(Motor::rotation_xy(ts * Number::from_num(0)))
-            .pre_apply(Motor::rotation_xz(ts * Number::from_num(1)))
-            .pre_apply(Motor::rotation_yz(ts * Number::from_num(0)))
+            .pre_apply(Transform::rotation_xy(ts * Number::from_num(0)))
+            .pre_apply(Transform::rotation_xz(ts * Number::from_num(1)))
+            .pre_apply(Transform::rotation_yz(ts * Number::from_num(0)))
             .normalized();
     }
 }

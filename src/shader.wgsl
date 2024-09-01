@@ -8,7 +8,7 @@ var<uniform> camera: Camera;
 
 struct Mesh {
     color: vec3<f32>,
-    transform: Motor,
+    transform: Transform,
 }
 
 struct Meshes {
@@ -112,7 +112,7 @@ fn point_to_normal(p: Point) -> vec3<f32> {
     ));
 }
 
-struct Motor {
+struct Transform {
     s: f32,
     e12: f32,
     e13: f32,
@@ -123,15 +123,15 @@ struct Motor {
     e0123: f32,
 }
 
-fn transform_point(point: Point, motor: Motor) -> Point {
-    let a = motor.s;
-    let b = motor.e12;
-    let c = motor.e13;
-    let d = motor.e23;
-    let e = motor.e01;
-    let f = motor.e02;
-    let g = motor.e03;
-    let h = motor.e0123;
+fn transform_point(point: Point, transform: Transform) -> Point {
+    let a = transform.s;
+    let b = transform.e12;
+    let c = transform.e13;
+    let d = transform.e23;
+    let e = transform.e01;
+    let f = transform.e02;
+    let g = transform.e03;
+    let h = transform.e0123;
     let i = point.e012;
     let j = point.e013;
     let k = point.e023;
@@ -145,13 +145,13 @@ fn transform_point(point: Point, motor: Motor) -> Point {
     return result;
 }
 
-fn inverse_motor(motor: Motor) -> Motor {
-    var result = motor;
-    result.e12 = -motor.e12;
-    result.e13 = -motor.e13;
-    result.e23 = -motor.e23;
-    result.e01 = -motor.e01;
-    result.e02 = -motor.e02;
-    result.e03 = -motor.e03;
+fn inverse_transform(transform: Transform) -> Transform {
+    var result = transform;
+    result.e12 = -transform.e12;
+    result.e13 = -transform.e13;
+    result.e23 = -transform.e23;
+    result.e01 = -transform.e01;
+    result.e02 = -transform.e02;
+    result.e03 = -transform.e03;
     return result;
 }
