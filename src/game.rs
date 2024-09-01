@@ -24,14 +24,17 @@ pub struct Game {
     vertices_buffer: wgpu::Buffer,
     mesh_bind_group_layout: wgpu::BindGroupLayout,
     mesh_bind_group: wgpu::BindGroup,
+    texture_bind_group_layout: wgpu::BindGroupLayout,
     render_pipeline: wgpu::RenderPipeline,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
 struct MeshConfig {
     name: String,
     model: String,
     title: String,
+    texture_color_map: String,
     discription: String,
 }
 
@@ -72,7 +75,7 @@ impl Game {
             format: wgpu::TextureFormat::Bgra8Unorm,
             width: size.width,
             height: size.height,
-            present_mode: wgpu::PresentMode::AutoNoVsync,
+            present_mode: wgpu::PresentMode::AutoVsync,
             alpha_mode: surface_caps.alpha_modes[0],
             view_formats: vec![],
             desired_maximum_frame_latency: 2,
@@ -126,7 +129,7 @@ impl Game {
                 entries: &[
                     wgpu::BindGroupLayoutEntry {
                         binding: 0,
-                        visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
+                        visibility: wgpu::ShaderStages::VERTEX,
                         ty: wgpu::BindingType::Buffer {
                             ty: wgpu::BufferBindingType::Storage { read_only: true },
                             has_dynamic_offset: false,
@@ -136,7 +139,7 @@ impl Game {
                     },
                     wgpu::BindGroupLayoutEntry {
                         binding: 1,
-                        visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
+                        visibility: wgpu::ShaderStages::VERTEX,
                         ty: wgpu::BindingType::Buffer {
                             ty: wgpu::BufferBindingType::Storage { read_only: true },
                             has_dynamic_offset: false,
@@ -161,11 +164,38 @@ impl Game {
             ],
         });
 
+        let texture_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("Texture Bind Group Layout"),
+                entries: &[
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Texture {
+                            multisampled: false,
+                            view_dimension: wgpu::TextureViewDimension::D2,
+                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                        },
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                        count: None,
+                    },
+                ],
+            });
+
         let shader = device.create_shader_module(wgpu::include_wgsl!("./shader.wgsl"));
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Render Pipeline Layout"),
-                bind_group_layouts: &[&camera_bind_group_layout, &mesh_bind_group_layout],
+                bind_group_layouts: &[
+                    &camera_bind_group_layout,
+                    &mesh_bind_group_layout,
+                    &texture_bind_group_layout,
+                ],
                 push_constant_ranges: &[],
             });
         let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
@@ -223,9 +253,13 @@ impl Game {
             vertices_buffer,
             mesh_bind_group_layout,
             mesh_bind_group,
+            texture_bind_group_layout,
             render_pipeline,
         };
         app.load_game(Path::new("GameData"));
+        
+        let fuel_tank = app.meshes.get_mut("mk1-fl-100").unwrap();
+        fuel_tank.transform = fuel_tank.transform.apply(Transform::translation(Vector3::Y * Number::from_num(-2)));
         app
     }
 
@@ -242,13 +276,11 @@ impl Game {
         {
             let part: MeshConfig =
                 serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
-            let mut model_path = path.parent().unwrap().join(part.model);
-            model_path.set_extension("obj");
             self.load_mesh(
                 &part.name,
-                &model_path,
-                cgmath::vec3(0.0, 1.0, 0.0),
-                Transform::translation(Vector3::Z * Number::from_num(5)),
+                &path.parent().unwrap().join(part.model),
+                &path.parent().unwrap().join(part.texture_color_map),
+                Transform::translation(Vector3::Z * Number::from_num(5) + Vector3::Y * Number::from_num(2)),
             );
         }
     }
@@ -257,7 +289,7 @@ impl Game {
         &mut self,
         name: &str,
         path: &Path,
-        color: cgmath::Vector3<f32>,
+        texture_color_map_path: &Path,
         transform: Transform,
     ) -> usize {
         let index = self.meshes.len();
@@ -274,17 +306,72 @@ impl Game {
             .map(|index| Vertex {
                 position: object.data.position[index.0].into(),
                 normal: object.data.normal[index.2.unwrap()].into(),
+                texture_coords: object.data.texture[index.1.unwrap()].into(),
             })
             .collect::<Vec<_>>();
+
+        let image =
+            image::load_from_memory(&std::fs::read(texture_color_map_path).unwrap()).unwrap();
+        let rgba_image = image.flipv().to_rgba8();
+
+        let texture = self.device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("Mesh Texture"),
+            size: wgpu::Extent3d {
+                width: rgba_image.width(),
+                height: rgba_image.height(),
+                depth_or_array_layers: 1,
+            },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8Unorm,
+            usage: wgpu::TextureUsages::COPY_DST | wgpu::TextureUsages::TEXTURE_BINDING,
+            view_formats: &[],
+        });
+        self.queue.write_texture(
+            texture.as_image_copy(),
+            &rgba_image,
+            wgpu::ImageDataLayout {
+                offset: 0,
+                bytes_per_row: Some(4 * rgba_image.width()),
+                rows_per_image: None,
+            },
+            texture.size(),
+        );
+        let texture_view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+        let texture_sampler = self.device.create_sampler(&wgpu::SamplerDescriptor {
+            address_mode_u: wgpu::AddressMode::ClampToEdge,
+            address_mode_v: wgpu::AddressMode::ClampToEdge,
+            address_mode_w: wgpu::AddressMode::ClampToEdge,
+            mag_filter: wgpu::FilterMode::Linear,
+            min_filter: wgpu::FilterMode::Nearest,
+            mipmap_filter: wgpu::FilterMode::Nearest,
+            ..Default::default()
+        });
+
+        let textures = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("Mesh Texture Bind Group"),
+            layout: &self.texture_bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(&texture_view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Sampler(&texture_sampler),
+                },
+            ],
+        });
 
         if self
             .meshes
             .insert(
                 name.into(),
                 Mesh {
-                    color,
                     start_vertex_index,
                     triangle_count: vertices.len() as _,
+                    textures,
                     transform,
                 },
             )
@@ -314,7 +401,7 @@ impl Game {
             Err(wgpu::SurfaceError::Outdated) => {
                 let size = self.window.inner_size();
                 self.resize(size.width, size.height);
-                return self.render();
+                return;
             }
             Err(wgpu::SurfaceError::Timeout) => return,
             Err(e @ (wgpu::SurfaceError::Lost | wgpu::SurfaceError::OutOfMemory)) => panic!("{e}"),
@@ -353,12 +440,11 @@ impl Game {
                         .values()
                         .map(
                             |&Mesh {
-                                 color,
                                  start_vertex_index: _,
                                  triangle_count: _,
+                                 textures: _,
                                  transform,
                              }| GpuMesh {
-                                color,
                                 transform: transform.apply(inverse_camera).into(),
                             },
                         )
@@ -459,6 +545,7 @@ impl Game {
             render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
             render_pass.set_bind_group(1, &self.mesh_bind_group, &[]);
             for (i, mesh) in self.meshes.values().enumerate() {
+                render_pass.set_bind_group(2, &mesh.textures, &[]);
                 render_pass.draw(
                     mesh.start_vertex_index..mesh.start_vertex_index + mesh.triangle_count,
                     i as u32..i as u32 + 1,
@@ -488,5 +575,6 @@ impl Game {
             .pre_apply(Transform::rotation_xz(ts * Number::from_num(1)))
             .pre_apply(Transform::rotation_yz(ts * Number::from_num(0)))
             .normalized();
+
     }
 }

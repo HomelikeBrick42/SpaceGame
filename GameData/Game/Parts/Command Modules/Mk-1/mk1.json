@@ -1,6 +1,7 @@
 {
     "name": "mk1-cockpit",
-    "model": "mk1",
+    "model": "Mk-1 Command Pod.obj",
+    "texture_color_map": "color.png",
     "title": "MK-1 Cockpit",
     "discription": "Wow this is an informative discription"
 }

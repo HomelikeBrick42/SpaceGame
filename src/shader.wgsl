@@ -7,7 +7,6 @@ struct Camera {
 var<uniform> camera: Camera;
 
 struct Mesh {
-    color: vec3<f32>,
     transform: Transform,
 }
 
@@ -22,6 +21,7 @@ var<storage, read> meshes: Meshes;
 struct Vertex {
     position: vec3<f32>,
     normal: vec3<f32>,
+    texture_coords: vec2<f32>,
 }
 
 struct Vertices {
@@ -37,6 +37,7 @@ struct VertexOutput {
     @location(0) instance_index: u32,
     @location(1) position: vec3<f32>,
     @location(2) normal: vec3<f32>,
+    @location(3) texture_coords: vec2<f32>,
 }
 
 @vertex
@@ -60,15 +61,20 @@ fn vs_main(
     out.instance_index = instance_index;
     out.position = position;
     out.normal = normal;
+    out.texture_coords = vertex.texture_coords;
 
     return out;
 }
 
+@group(2) @binding(0)
+var texture: texture_2d<f32>;
+@group(2) @binding(1)
+var texture_sampler: sampler;
+
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    let mesh = meshes.meshes[in.instance_index];
     let light = dot(in.normal, -normalize(in.position)) * 0.5 + 0.5;
-    return vec4<f32>(mesh.color * light, 1.0);
+    return textureSample(texture, texture_sampler, in.texture_coords);
 }
 
 struct Point {
