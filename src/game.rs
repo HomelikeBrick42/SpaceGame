@@ -1,16 +1,12 @@
-use std::fs::{self, DirEntry};
-use std::io;
-use std::path::Path;
-
-use encase::{ShaderSize, ShaderType, StorageBuffer, UniformBuffer};
-use serde::{Deserialize, Serialize};
-use std::sync::Arc;
-use winit::window::Window;
-
 use crate::{
     motor::Transform, vector3::Vector3, Camera, GpuCamera, GpuMesh, GpuMeshes, GpuVertices, Mesh,
     Number, Vertex,
 };
+use encase::{ShaderSize, ShaderType, StorageBuffer, UniformBuffer};
+use serde::{Deserialize, Serialize};
+use std::path::Path;
+use std::sync::Arc;
+use winit::window::Window;
 
 pub struct Game {
     window: Arc<Window>,
@@ -233,7 +229,7 @@ impl Game {
 
     fn load_game(&mut self, path: &Path) {
         if path.is_dir() {
-            for entry in fs::read_dir(path).unwrap() {
+            for entry in std::fs::read_dir(path).unwrap() {
                 let entry = entry.unwrap();
                 let path = entry.path();
                 self.load_game(&path)
