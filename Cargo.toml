@@ -1,0 +1,14 @@
+[package]
+name = "space"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+az = "1.2.1"
+cgmath = "0.18.0"
+encase = { version = "0.9.0", features = ["cgmath"] }
+fixed = "1.28.0"
+obj = "0.10.2"
+pollster = "0.3.0"
+wgpu = "22.1.0"
+winit = "0.29"
