@@ -19,7 +19,7 @@ pub struct Game {
     meshes: Vec<Mesh>,
     vertices: Vec<Vertex>,
     mesh_buffer: wgpu::Buffer,
-    triangles_buffer: wgpu::Buffer,
+    vertices_buffer: wgpu::Buffer,
     mesh_bind_group_layout: wgpu::BindGroupLayout,
     mesh_bind_group: wgpu::BindGroup,
     render_pipeline: wgpu::RenderPipeline,
@@ -104,8 +104,8 @@ impl Game {
             usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::STORAGE,
             mapped_at_creation: false,
         });
-        let triangles_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("Triangle Buffer"),
+        let vertices_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Vertices Buffer"),
             size: GpuVertices::min_size().get(),
             usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::STORAGE,
             mapped_at_creation: false,
@@ -146,7 +146,7 @@ impl Game {
                 },
                 wgpu::BindGroupEntry {
                     binding: 1,
-                    resource: triangles_buffer.as_entire_binding(),
+                    resource: vertices_buffer.as_entire_binding(),
                 },
             ],
         });
@@ -210,7 +210,7 @@ impl Game {
             meshes: Vec::new(),
             vertices: Vec::new(),
             mesh_buffer,
-            triangles_buffer,
+            vertices_buffer,
             mesh_bind_group_layout,
             mesh_bind_group,
             render_pipeline,
@@ -352,9 +352,9 @@ impl Game {
                 };
 
                 let size = vertices.size();
-                if size.get() > self.triangles_buffer.size() {
-                    self.triangles_buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
-                        label: Some("Triangles Buffer"),
+                if size.get() > self.vertices_buffer.size() {
+                    self.vertices_buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
+                        label: Some("Vertices Buffer"),
                         size: size.get(),
                         usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::STORAGE,
                         mapped_at_creation: false,
@@ -363,7 +363,7 @@ impl Game {
                 }
                 StorageBuffer::new(
                     self.queue
-                        .write_buffer_with(&self.triangles_buffer, 0, size)
+                        .write_buffer_with(&self.vertices_buffer, 0, size)
                         .unwrap()
                         .as_mut(),
                 )
@@ -382,7 +382,7 @@ impl Game {
                         },
                         wgpu::BindGroupEntry {
                             binding: 1,
-                            resource: self.triangles_buffer.as_entire_binding(),
+                            resource: self.vertices_buffer.as_entire_binding(),
                         },
                     ],
                 });
